@@ -496,6 +496,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.foot_step_count=0
         self.foot_step_left=0
         self.gait_record=False
+        self.gait_record_finish=False
         self.right_distance_start_left=0
         self.right_distance_start_right=0
         self.right_distance_end_left=0
@@ -1065,13 +1066,15 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             self.countdown_timer_training.timeout.connect(self.update_training_time)
             self.countdown_timer_training.start(1000)  # 每秒觸發一次
             self.is_paused = False  # 重置暫停狀態
+            
+            self.gait_record_finish=False
 
         else:
             self.pushButton_21.setText("Start")
             data = bytes([self.trill_speed_command, 0]) 
             self.gait_record=False
             self.ser.write(data)
-
+            self.gait_record_finish=True
             # 停止計時器並重置
             self.count=10
             self.clear_all_depth_items()
@@ -1791,6 +1794,12 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                     cv2.putText(bgr_image,str(text),(50,400),cv2.FONT_HERSHEY_SIMPLEX,3,(255,0,0),2)    
                     
                     out.write(bgr_image)
+                if self.gait_record_finish and self.gait_record:
+                    out.release()
+                elif self.gait_record_finish:
+                    fourcc =cv2.VideoWriter_fourcc(*'XVID')
+                    out=cv2.VideoWriter('output.avi',fourcc,10.0,(640,480))
+                    self.gait_record_finish=False
                 #depth_colormap_dim = depth_colormap.shape
                 color_colormap_dim = color_image.shape
                 """
