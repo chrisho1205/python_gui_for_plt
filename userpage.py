@@ -16,7 +16,7 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as  plt
 import time
-import serial
+#import serial
 from scipy.signal import argrelextrema
 import traceback
 class LabelEventFilter(QObject):
@@ -508,6 +508,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.count_local_value_left=0
         self.count_local_value_right=0
         self.left_drop_foot_average=[]
+        self.foot_step_time_index=0
         self.right_drop_foot_average=[]
 
         
@@ -518,7 +519,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.label_9.setStyleSheet("font-size: 24px;") 
         self.label_10.setStyleSheet("font-size: 24px;") 
         #self.draw_line(self.z_near_value,self.z_far_value)  
-        
+        """
         self.ser = serial.Serial(
         port='/dev/ttyUSB0',        # 串口號，根據實際調整
         baudrate=4800,      # 波特率
@@ -527,7 +528,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         stopbits=serial.STOPBITS_ONE,  # 停止位
         timeout=10        # 超時設置（秒）
             )
-        
+        """
         
         
         self.elapsed_time = 0  # 以秒為單位
@@ -780,7 +781,19 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         #print("y minima ",local_max_y)
         #print("z minima ",local_max_z)
         #self.foot_step_count=len(local_max_z_left)+len(local_max_z_right)
+        self.label_15.setText(str(self.foot_step_count))
         self.label.setFootstep(self.foot_step_count)
+        if  self.foot_step_count==self.foot_step_time_index+1:
+            if self.foot_step_count==1:
+                self.start_time=time.time()
+            else:
+                end_time=time.time()
+                processing_time=end_time-self.start_time
+                self.start_time=time.time()
+                self.foot_step_left=processing_time
+            self.foot_step_time_index=self.foot_step_count
+            self.foot_step_left=int(60/self.foot_step_left)
+            self.label_17.setText(str(self.foot_step_left))
     def show_foot_step_distance(self,depth_left,depth_right,left_depth_value_list,right_depth_value_list):
         #local_max_z_left=0
         #local_max_z_right=0
@@ -811,7 +824,9 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             print("left_distance")
             print(left_distance)
             #self.foot_step_count=left_distance
-            self.label.setFootstep(self.foot_step_count,1)
+            #self.label.setFootstep(self.foot_step_count,1)
+            self.label_19.setText(f"{left_distance:.1f}")
+            
         local_min_z_left = np.array([])
         local_max_z_left= np.array([])
         
@@ -836,6 +851,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             #print(right_distance)
             self.foot_step_left=right_foot_distance
             #self.label.setFootstep(self.foot_step_count,2)
+            self.label_21.setText(f"{right_distance:.1f}")
         plt.ion()
         plt.plot(depth_left,label="left")
         plt.plot(depth_right,label="right")
@@ -1067,6 +1083,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             self.countdown_timer_training.start(1000)  # 每秒觸發一次
             self.is_paused = False  # 重置暫停狀態
             
+            self.label_15.setText(str(self.foot_step_count))
             self.gait_record_finish=False
 
         else:
