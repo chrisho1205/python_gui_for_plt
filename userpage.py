@@ -16,7 +16,7 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as  plt
 import time
-#import serial
+import serial
 from scipy.signal import argrelextrema
 import traceback
 class LabelEventFilter(QObject):
@@ -298,7 +298,7 @@ class MyLabel(QLabel):  # 自定义 QLabel 类
     
     def calculate_roi_mediapipe_calibrate(self,depth_image,x,y):
         h, w = 480,640
-        ROI_width=10
+        ROI_width=6
         x_calibrate=((x-321.1242370605469)*depth_image.get_distance(x, y))/610.4790649414062
         y_calibrate=((y-246.25962829589844)*depth_image.get_distance(x, y))/610.4264526367188
         #print(x)
@@ -318,18 +318,18 @@ class MyLabel(QLabel):  # 自定义 QLabel 类
         for y_ in range(roi_y, roi_y2):
             for x_ in range(roi_x, roi_x2):
                 z_value =  depth_image.get_distance(x_, y_)
-                if z_value:
+                if z_value>0:
                     depth_roi_sum += z_value
                     depth_roi_count += 1
         #print(depth_roi_sum)
         if depth_roi_count > 0:
-            #avg_depth = depth_roi_sum / depth_roi_count
-            avg_depth = depth_image.get_distance(x, y)
+            avg_depth = depth_roi_sum / depth_roi_count
+            #avg_depth = depth_image.get_distance(x, y)
         else:
             avg_depth = 0  # 如果 ROI 中沒有有效的深度數據，設為 0
         roi_depth=avg_depth
 
-        #avg_depth= math.sqrt(roi_depth**2-((x_calibrate)**2+(y_calibrate)**2))
+        avg_depth= math.sqrt(roi_depth**2-((x_calibrate)**2+(y_calibrate)**2))
         #avg_depth= math.sqrt((depth_image.get_distance(x, y)**2)-(((x-320)**2)+((y-240)**2)))
         #print(avg_depth)
         return x_calibrate,y_calibrate,avg_depth
@@ -510,6 +510,8 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.left_drop_foot_average=[]
         self.foot_step_time_index=0
         self.right_drop_foot_average=[]
+        self.left_depth=0
+        self.foot_step_time=[]
 
         
         
@@ -519,7 +521,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.label_9.setStyleSheet("font-size: 24px;") 
         self.label_10.setStyleSheet("font-size: 24px;") 
         #self.draw_line(self.z_near_value,self.z_far_value)  
-        """
+        
         self.ser = serial.Serial(
         port='/dev/ttyUSB0',        # 串口號，根據實際調整
         baudrate=4800,      # 波特率
@@ -528,7 +530,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         stopbits=serial.STOPBITS_ONE,  # 停止位
         timeout=10        # 超時設置（秒）
             )
-        """
+        
         
         
         self.elapsed_time = 0  # 以秒為單位
@@ -780,7 +782,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         local_max_z_right = argrelextrema(smoothed_data_z_right, np.less,order=3)[0]
         #print("y minima ",local_max_y)
         #print("z minima ",local_max_z)
-        #self.foot_step_count=len(local_max_z_left)+len(local_max_z_right)
+        self.foot_step_count=len(local_max_z_left)+len(local_max_z_right)
         self.label_15.setText(str(self.foot_step_count))
         self.label.setFootstep(self.foot_step_count)
         if  self.foot_step_count==self.foot_step_time_index+1:
@@ -809,7 +811,15 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         local_max_z_left = argrelextrema(smoothed_data_z_left , np.greater,order=3)[0]
         local_max_z_right = argrelextrema(smoothed_data_z_right, np.greater,order=3)[0]
         
-        if len(local_min_z_left) > 0:
+        count_left=0
+        
+        if len(local_max_z_left)< len(local_min_z_left):
+                count_left=1
+                
+                
+        
+        
+        if len(local_min_z_left) > count_left:
             local_min_z_left_index=local_min_z_left[len(local_min_z_left)-1]
             self.right_distance_start_left=smoothed_data_z_left[local_min_z_left_index]
             self.right_distance_start_right= smoothed_data_z_right[local_min_z_left_index]
@@ -818,12 +828,14 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             self.right_distance_end_left=smoothed_data_z_left[local_max_z_left_index]
             self.right_distance_end_right= smoothed_data_z_right[local_max_z_left_index]
         if len(local_min_z_left) > 0 and len(local_max_z_left)>0 :
-            left_foot_distance=self.right_distance_end_left- self.right_distance_start_left
-            right_foot_distance=self.right_distance_end_right- self.right_distance_start_right
+            #left_foot_distance=self.right_distance_end_left- self.right_distance_start_left
+            #right_foot_distance=self.right_distance_end_right- self.right_distance_start_right
+            left_foot_distance=self.right_distance_start_left- self.right_distance_end_left
+            right_foot_distance=self.right_distance_start_right- self.right_distance_end_right
             left_distance=abs(left_foot_distance)+abs(right_foot_distance)
             print("left_distance")
             print(left_distance)
-            #self.foot_step_count=left_distance
+            self.foot_step_count=left_distance
             #self.label.setFootstep(self.foot_step_count,1)
             self.label_19.setText(f"{left_distance:.1f}")
             
@@ -841,26 +853,30 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             self.left_distance_end_right=smoothed_data_z_right[local_max_z_right_index]
             self.left_distance_end_left= smoothed_data_z_left[local_max_z_right_index]
         if len(local_min_z_right)>0 and len(local_max_z_right)>0:
-            right_foot_distance=self.left_distance_end_right- self.left_distance_start_right
-            left_foot_distance=self.left_distance_end_left- self.left_distance_start_left
+            #right_foot_distance=self.left_distance_end_right- self.left_distance_start_right
+            #left_foot_distance=self.left_distance_end_left- self.left_distance_start_left
+            right_foot_distance=self.left_distance_start_right- self.left_distance_end_right
+            left_foot_distance=self.left_distance_start_left- self.left_distance_end_left
             print(right_foot_distance)
             print(left_foot_distance)
             right_distance=abs(left_foot_distance)+abs(right_foot_distance)
             print("right_distance")
-            self.foot_step_count=left_foot_distance
+            #self.foot_step_count=left_foot_distance
             #print(right_distance)
-            self.foot_step_left=right_foot_distance
-            #self.label.setFootstep(self.foot_step_count,2)
+            self.foot_step_left=right_distance
+            
             self.label_21.setText(f"{right_distance:.1f}")
-        plt.ion()
-        plt.plot(depth_left,label="left")
-        plt.plot(depth_right,label="right")
-        plt.scatter(local_max_z_left, smoothed_data_z_left[local_max_z_left], color='purple', label='Max Left', zorder=5)
-        plt.scatter(local_min_z_left, smoothed_data_z_left[local_min_z_left], color='green', label='Min Left', zorder=5)
-        plt.pause(0.01)  # 暂停以更新图像
+        #plt.ion()
+        #plt.plot(depth_left,label="left")
+        #plt.plot(depth_right,label="right")
+        #if len(local_max_z_left) >0 and len(local_min_z_left)>0 :
         
-        plt.legend()
-        plt.show()
+            #plt.scatter(local_max_z_left, smoothed_data_z_left[local_max_z_left], color='purple', label='Max Left', zorder=5)
+            #plt.scatter(local_min_z_left, smoothed_data_z_left[local_min_z_left], color='green', label='Min Left', zorder=5)
+        #plt.pause(0.01)  # 暂停以更新图像
+        
+        #plt.legend()
+        #plt.show()
         local_min_z_right = np.array([])
         local_max_z_right= np.array([])
     def show_drop_foot_degree(self,left_y_ankle,right_y_ankle,left_degree_ankle,right_degree_ankle):
@@ -1036,6 +1052,8 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.label_8.setText(f"{self_speed:.1f}")
     def decrease_speed(self):
         self_speed=float(self.label_8.text())
+        if (self_speed<=0.0):
+                self_speed==0.0
         self_speed-=0.1
         self.label_8.setText(f"{self_speed:.1f}")
     
@@ -1080,7 +1098,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             # 啟動計時器
            # self.countdown_timer_training.timeout.disconnect()
             self.countdown_timer_training.timeout.connect(self.update_training_time)
-            self.countdown_timer_training.start(1000)  # 每秒觸發一次
+            self.countdown_timer_training.start(1000) # 每秒觸發一次
             self.is_paused = False  # 重置暫停狀態
             
             self.label_15.setText(str(self.foot_step_count))
@@ -1113,7 +1131,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             if self.selected_text_mediapipe=="Drop_Foot":
                 np.save("left_drop_foot_degree.npy",self.left_drop_foot_average)
                 np.save("right_drop_foot_degree.npy",self.right_drop_foot_average)
-
+            plt.show()
 
             np.save("right_degree.npy",self.right_line_degree)
             np.save("right_x.npy",self.right_x_value_list)
@@ -1160,6 +1178,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.label_11.setText(f"{hours:02}:{minutes:02}:{seconds:02}")
         depth_value = self.label_6.text()
         self.draw_training_data(float(depth_value[:len(depth_value)-2]))
+        
         if self.update_x_axis_check:
             self.count+=1
             print(self.count)
@@ -1175,6 +1194,8 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             if self.label.image_status()==-2:
                 
                 speed_value=int((float(self.label_8.text())-0.2)*10)
+                if speed_value<=0:
+                    speed_value=0
                 print(speed_value)
                 data = bytes([self.trill_speed_command, speed_value]) 
                 self.ser.write(data)
@@ -1182,7 +1203,10 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                 
                 
             elif self.label.image_status()==-1:
+                
                 speed_value=int((float(self.label_8.text())-0.1)*10)
+                if speed_value<=0:
+                    speed_value=0
                 data = bytes([self.trill_speed_command, speed_value]) 
                 self.ser.write(data)
                 self.label_8.setText(str(speed_value/10))
@@ -1281,13 +1305,13 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                    
             elif self.selected_text_mediapipe=="Foot_step":
                 self.left_node_1=23
-                self.left_node_2=29
+                self.left_node_2=27
                 self.left_node_3=31
                 self.right_node_1=24
-                self.right_node_2=30
+                self.right_node_2=28
                 self.right_node_3=32
-                self.left_node_4=29
-                self.right_node_4=30
+                self.left_node_4=27
+                self.right_node_4=28
             elif self.selected_text_mediapipe=="body_step":
                 self.left_node_1=11
                 self.left_node_2=23
@@ -1529,7 +1553,12 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                     25: 0.20, 26: 0.20,  # 左下肢
                                 }
                             print("body_step")#0 8.1% ///  11 12 23 24  43.2% /// 13 14 5% /////  25 26 10% each  
+                            #com_x,com,y = self.calculate_com(results.pose_landmarks.landmark, h, w, mass_ratios)
                             com = self.calculate_com(results.pose_landmarks.landmark, h, w, mass_ratios)
+                            #selected_points.extend([com_x,com_y])
+                            #custom_connections.extend([com_x,com_y])
+                            selected_points.extend([com])
+                            custom_connections.extend([com])
                             """
                             if line_right_shoulder and  line_right_hip and line_right_knee:
                             
@@ -1565,6 +1594,8 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                             second_line=[]
                             z_vector=[]
                             if line_right_shoulder and  line_right_hip and line_right_knee and line_left_shoulder and  line_left_hip and line_left_knee:
+                                    
+                                """
                                 first_line.append((line_left_knee[0]-line_right_knee[0]))
                                 first_line.append((line_left_knee[1]-line_right_knee[1]))
                                 first_line.append((depth_value_mediapipe_calibrate_left_knee-depth_value_mediapipe_calibrate_right_knee))
@@ -1619,6 +1650,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                     self.left_line_degree.append(theta_deg)
                                     self.show_toe_degree(depth_value_mediapipe_calibrate_right_hip,theta_deg)
                                 o_vector=pre_o_vector
+                                """
                         elif self.selected_text_mediapipe=="Foot_step":
                             if line_right_shoulder and  line_right_hip and line_right_knee and line_left_shoulder and  line_left_hip and line_left_knee and line_left_heel and line_right_heel:
                                 print("foot_step")
@@ -1641,6 +1673,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                 
                                 self.right_x_value_list.append(line_right_knee[1])
                                 self.right_line_degree.append(depth_value_mediapipe_calibrate_right_knee)
+                                self.left_depth=depth_value_mediapipe_calibrate_left_heel
                                 #self.show_foot_step(self.left_y_value_list,self.left_depth_value_mediapipe_calibrate_list,self.right_y_value_list,self.right_depth_value_mediapipe_calibrate_list)
                                 self.show_foot_step_distance(depth_value_mediapipe_calibrate_left_heel,depth_value_mediapipe_calibrate_right_heel,self.left_depth_value_mediapipe_calibrate_list,self.right_depth_value_mediapipe_calibrate_list)
                                 """
@@ -1811,11 +1844,11 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                     cv2.putText(bgr_image,str(text),(50,400),cv2.FONT_HERSHEY_SIMPLEX,3,(255,0,0),2)    
                     
                     out.write(bgr_image)
-                if self.gait_record_finish and self.gait_record:
+                if self.gait_record_finish and self.gait_record==False:
                     out.release()
                 elif self.gait_record_finish:
                     fourcc =cv2.VideoWriter_fourcc(*'XVID')
-                    out=cv2.VideoWriter('output.avi',fourcc,10.0,(640,480))
+                    out=cv2.VideoWriter('output2.avi',fourcc,10.0,(640,480))
                     self.gait_record_finish=False
                 #depth_colormap_dim = depth_colormap.shape
                 color_colormap_dim = color_image.shape
