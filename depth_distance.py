@@ -5,8 +5,9 @@ window_size = 2
 def moving_average(data, window_size):
     return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
 
-loaded_data_z_right = np.load('./foot_step_with80cm2/right_depth.npy', allow_pickle=True)
-loaded_data_z_left = np.load("./foot_step_with80cm2/left_depth.npy", allow_pickle=True)
+loaded_data_z_right = np.load("C:\\Users\\chris\\Documents\\GitHub\\test_data\\foot_step_distance80cm\\right_depth.npy", allow_pickle=True)
+loaded_data_z_left = np.load("C:\\Users\\chris\\Documents\\GitHub\\test_data\\foot_step_distance80cm\\right_depth.npy", allow_pickle=True)
+loaded_data_y_left = np.load("C:\\Users\\chris\\Documents\\GitHub\\test_data\\foot_step_distance80cm\\right_y.npy", allow_pickle=True)
 #loaded_data_z_right=loaded_data_z_right[100:150]
 #loaded_data_z_left=loaded_data_z_left[100:150]
 frame_left=0
@@ -22,6 +23,7 @@ local_local_min_z_left_index=0
 for i in range(len(loaded_data_z_left)):
     left_depth_value_list=list(loaded_data_z_left[:i+1])
     right_depth_value_list=list(loaded_data_z_right[:i+1])
+    right_y_value_list=list(loaded_data_y_left[:i+1])
     #print( right_depth_value_list)
     # 卡尔曼滤波函数
     def kalman_filter(data, Q=1e-2, R=1e-2):
@@ -50,12 +52,17 @@ for i in range(len(loaded_data_z_left)):
     #smoothed_data_z_right = kalman_filter(smoothed_data_z_right)
     smoothed_data_z_left = kalman_filter(left_depth_value_list)
     smoothed_data_z_right = kalman_filter(right_depth_value_list)
+    
+    smoothed_data_y_right = kalman_filter(right_y_value_list)
+    smoothed_data_y_right=-smoothed_data_y_right
     #smoothed_data_z_left = np.array(left_depth_value_list)
     #smoothed_data_z_right = np.array(right_depth_value_list)
     local_min_z_left = argrelextrema(smoothed_data_z_left , np.less,order=10)[0]
     local_min_z_right = argrelextrema(smoothed_data_z_right, np.less,order=10)[0]
+    local_min_y_right = argrelextrema(smoothed_data_y_right, np.less,order=10)[0]
     local_max_z_left = argrelextrema(smoothed_data_z_left , np.greater,order=10)[0]
     local_max_z_right = argrelextrema(smoothed_data_z_right, np.greater,order=10)[0]
+    local_max_y_right = argrelextrema(smoothed_data_y_right, np.greater,order=10)[0]
     """
     if len(local_min_z_left)>len(local_max_z_left):
         local_min_z_left_index=local_min_z_left[len(local_min_z_left)-1]
@@ -159,31 +166,39 @@ for i in range(len(loaded_data_z_left)):
         #local_min_z_right = np.array([])
         #local_max_z_right= np.array([])
         
-        plt.plot(smoothed_data_z_left, label="Left Foot Distance")
+       #plt.plot(smoothed_data_z_left, label="Left Foot Distance")
+        plt.plot(smoothed_data_y_right, label="Left Foot Distance")
         plt.plot(smoothed_data_z_right, label="Right Foot Distance")
-        plt.scatter(local_max_z_left, smoothed_data_z_left[local_max_z_left], color='purple', label='Max Left', zorder=5)
-        plt.scatter(local_min_z_left, smoothed_data_z_left[local_min_z_left], color='green', label='Min Left', zorder=5)
+        #plt.scatter(local_max_z_left, smoothed_data_z_left[local_max_z_left], color='purple', label='Max Left', zorder=5)
+        #plt.scatter(local_min_z_left, smoothed_data_z_left[local_min_z_left], color='green', label='Min Left', zorder=5)
+        plt.scatter(local_max_y_right, smoothed_data_y_right[local_max_y_right], color='purple', label='Max Left', zorder=5)
+        plt.scatter(local_max_z_right, smoothed_data_z_right[local_max_z_right], color='green', label='Min Left', zorder=5)
 
         # 生成时间刻度
         data_length = len(smoothed_data_z_left)  # 平滑数据的长度
         fps = 10  # 每秒帧数
-        total_time_seconds = data_length // fps  # 总时长（秒）
-        time_labels = [f"00:{str(i).zfill(2)}" for i in range(total_time_seconds + 1)]  # 时间格式标签
+        x_ticks = np.arange(0, data_length, fps)  # 每秒一个 tick
 
-        # 每隔10帧对应一个时间点
-        x_ticks = np.arange(0, data_length, fps)
+        # 只生成与 ticks 数量匹配的时间标签
+        time_labels = [f"00:{str(i//fps).zfill(2)}" for i in x_ticks]
+
+        # 设置 X 轴时间刻度
+        plt.xticks(ticks=x_ticks, labels=time_labels, rotation=45)
 
         # 设置 X 轴时间刻度
         plt.xticks(ticks=x_ticks, labels=time_labels, rotation=45)
         plt.xlabel("Time (mm:ss)")
         plt.ylabel("Distance")
         plt.title("Foot Distance Over Time")
-        plt.legend()
-        plt.grid()
+        
         plt.grid()
         plt.pause(0.01)  # 暂停以更新图像
 # 保存距离数据
+plt.legend()
+plt.grid()
 np.save("left_distance.npy", distance_left)
 np.save("right_distance.npy", distance_right)
+print(local_max_y_right)
+print(local_max_z_right)
 plt.ioff()  # 關閉互動模式
 plt.show()  # 顯示最終結果

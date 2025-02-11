@@ -992,7 +992,8 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             return int(com_x), int(com_y)
         else:
             return None  # 如果没有有效关键点，返回 None
-    def show_toe_degree(self,depth_value_right_toe,right_degree) :
+    def show_toe_degree(self,line_right_hip, line_left_hip,line_right_shoulder,line_left_shoulder,depth_value_right_ankle,depth_value_left_ankle,depth_value_right_toe,depth_value_left_toe) :
+        """
         window_size = 5
         def moving_average(data, window_size):
             return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
@@ -1004,6 +1005,45 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         index=local_max_y_right[-1]
         toe_right_degree=smoothed_data_degree_right[index]
         self.foot_step_left=toe_right_degree
+        """
+        window_size = 3
+        def moving_average(data, window_size):
+            return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
+        smoothed_data_z_right_ankle = moving_average(depth_value_right_ankle, window_size)
+        smoothed_data_z_left_ankle = moving_average(depth_value_left_ankle, window_size)
+        smoothed_data_z_right_toe = moving_average(depth_value_right_toe, window_size)
+        smoothed_data_z_left_toe = moving_average(depth_value_left_toe, window_size)
+
+        local_min_z_left = argrelextrema(smoothed_data_z_left_ankle , np.less,order=3)[0]
+        local_min_z_right = argrelextrema( smoothed_data_z_right_ankle, np.less,order=3)[0]
+        local_max_z_left = argrelextrema(smoothed_data_z_left_ankle , np.greater,order=3)[0]
+        local_max_z_right = argrelextrema( smoothed_data_z_right_ankle, np.greater,order=3)[0]
+        right_ankle_depth_first=0
+        right_ankle_depth_second=0
+        if len(local_min_z_right)>0:
+            right_ankle_depth_first= smoothed_data_z_right_ankle[local_min_z_right]
+        if len(local_max_z_right)>0:
+            right_ankle_depth_second= smoothed_data_z_right_ankle[local_max_z_right]
+        if right_ankle_depth_first and right_ankle_depth_second:
+            first_line=[]
+            second_line=[]
+            first_line.append(right_ankle_depth_first-right_ankle_depth_second)
+            second_line.append(right_ankle_depth_second-smoothed_data_z_right_toe)
+            first_line=np.array(first_line)
+            second_line=np.array(second_line)
+            dot_product = np.dot(first_line, second_line)
+            first_line_length= np.linalg.norm(first_line)
+            second_line_length = np.linalg.norm(second_line)
+            cos_theta = dot_product / (first_line_length * second_line_length)
+            #cos_theta = np.clip(cos_theta, -1.0, 1.0)
+            theta_rad = np.arccos(cos_theta)
+            theta_deg = np.degrees(theta_rad)
+
+
+        
+
+
+
 
 
 
@@ -1073,6 +1113,12 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             self.left_depth_value_mediapipe_calibrate_list=[]
             self.foot_step_time=[]
             self.foot_step_count=0
+            self.toe_x_right=[]
+            self.toe_y_right=[]
+            self.toe_depth_right=[]
+            self.toe_x_left=[]
+            self.toe_y_left=[]
+            self.toe_depth_left=[]
             
             if self.selected_text =="Customize":
                 speed_value=self.customize_speed[self.customize_count]
@@ -1593,8 +1639,58 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                             first_line=[]
                             second_line=[]
                             z_vector=[]
+                            right_ankle_depth_first=0
+                            right_ankle_depth_second=0
+                            window_size = 3
+                            def moving_average(data, window_size):
+                                return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
                             if line_right_shoulder and  line_right_hip and line_right_knee and line_left_shoulder and  line_left_hip and line_left_knee:
-                                    
+                                
+                                self.show_toe_degree(line_right_hip, line_left_hip,line_right_shoulder,line_left_shoulder ,depth_value_mediapipe_calibrate_right_hip,depth_value_mediapipe_calibrate_left_hip,depth_value_mediapipe_calibrate_right_shoulder,depth_value_mediapipe_calibrate_left_shoulder)
+                                
+                                self.right_depth_value_mediapipe_calibrate_list.append(depth_value_mediapipe_calibrate_right_hip)
+                                self.right_x_value_list.append(line_right_hip[0])
+                                self.right_y_value_list.append(line_right_hip[1])
+
+                                self.left_depth_value_mediapipe_calibrate_list.append(depth_value_mediapipe_calibrate_left_hip)
+                                self.left_x_value_list.append(line_left_hip[0])
+                                self.left_y_value_list.append(line_left_hip[1])
+                               
+                                self.toe_x_right.append(line_right_shoulder[0])
+                                self.toe_y_right.append(line_right_shoulder[1])
+                                self.toe_depth_right.append(depth_value_mediapipe_calibrate_right_shoulder)
+                                self.toe_x_left.append(line_left_shoulder[0])
+                                self.toe_y_left.append(line_left_shoulder)
+                                self.toe_depth_left.append(depth_value_mediapipe_calibrate_left_shoulder)
+
+                                local_min_z_left = argrelextrema(self.left_depth_value_mediapipe_calibrate_list , np.less,order=3)[0]
+                                local_min_z_right = argrelextrema(self.right_depth_value_mediapipe_calibrate_list, np.less,order=3)[0]
+                                local_max_z_left = argrelextrema(self.left_depth_value_mediapipe_calibrate_list , np.greater,order=3)[0]
+                                local_max_z_right = argrelextrema(self.right_depth_value_mediapipe_calibrate_list, np.greater,order=3)[0]
+
+                                if  local_max_z_left >0:
+                                    left_ankle_depth_first=self.left_depth_value_mediapipe_calibrate_list[local_max_z_left]
+                                if  local_min_z_left >0:
+                                    left_ankle_depth_second=self.left_depth_value_mediapipe_calibrate_list[local_min_z_left]
+                                if local_max_z_left >0 and local_min_z_left >0:  
+                                    first_line.append(self.left_x_value_list[local_max_z_left ]-self.left_x_value_list[local_min_z_left]) 
+                                    first_line.append(self.left_y_value_list[local_max_z_left ]-self.left_y_value_list[local_min_z_left]) 
+                                    first_line.append(left_ankle_depth_first-left_ankle_depth_second) 
+                                    second_line.append(self.left_x_value_list[local_min_z_left]-self.toe_x_left[local_min_z_left])
+                                    second_line.append(self.left_y_value_list[local_min_z_left]-self.toe_y_left[local_min_z_left])
+                                    second_line.append(self.left_depth_value_mediapipe_calibrate_list[local_min_z_left]-self.toe_depth_left[local_min_z_left])
+                                    first_line=np.array(first_line)
+                                    second_line=np.array(second_line)
+                                    dot_product = np.dot(first_line, second_line)
+                                    first_line_length= np.linalg.norm(first_line)
+                                    second_line_length = np.linalg.norm(second_line)
+                                    cos_theta = dot_product / (first_line_length * second_line_length)
+                                    #cos_theta = np.clip(cos_theta, -1.0, 1.0)
+                                    theta_rad = np.arccos(cos_theta)
+                                    theta_deg = np.degrees(theta_rad)
+                                    self.right_line_degree.append(theta_deg)
+                                    self.label_21.setText(f"{theta_deg:.1f}")
+
                                 """
                                 first_line.append((line_left_knee[0]-line_right_knee[0]))
                                 first_line.append((line_left_knee[1]-line_right_knee[1]))
