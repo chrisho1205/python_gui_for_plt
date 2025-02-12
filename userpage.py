@@ -298,7 +298,7 @@ class MyLabel(QLabel):  # 自定义 QLabel 类
     
     def calculate_roi_mediapipe_calibrate(self,depth_image,x,y):
         h, w = 480,640
-        ROI_width=6
+        ROI_width=4
         x_calibrate=((x-321.1242370605469)*depth_image.get_distance(x, y))/610.4790649414062
         y_calibrate=((y-246.25962829589844)*depth_image.get_distance(x, y))/610.4264526367188
         #print(x)
@@ -343,7 +343,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.label =  MyLabel(self)  # 假設要顯示影像的 QLabel
         self.label.setGeometry(10, 130, 640, 480)  # 設置 QLabel 的大小和位置
         self.scene = QGraphicsScene()
-        self.scene.setSceneRect(0, 0, 740, 200) 
+        self.scene.setSceneRect(0, 0, 740, 250) 
         self.graphicsView.setScene(self.scene)
         self.pipeline = rs.pipeline()
         self.config = rs.config()
@@ -544,20 +544,20 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         # 绘制 X 轴
         axis_pen = QPen(QColor(0, 0, 0))  # 黑色线条
         axis_pen.setWidth(2)
-        self.scene.addLine(40, 170, 720, 170, axis_pen)  # 画 X 轴线
+        self.scene.addLine(40, 185, 720, 185, axis_pen)  # 画 X 轴线
 
         # 添加 X 轴的标签（时间）
         for i in range(0, 691, 50):  # 每隔 50 像素显示一个时间刻度
             time_str = start_time.addSecs(i // 50 * time_interval * 60).toString("hh:mm")  # 计算时间并转换为字符串
             print(time_str)
             text_item = QGraphicsTextItem(time_str)
-            text_item.setPos(30 + i, 170)  # 设置标签位置
+            text_item.setPos(30 + i, 185)  # 设置标签位置
             self.scene.addItem(text_item)
     def update_x_axis(self,near_line,far_line):
         """动态更新 X 轴标签"""
         #max_x = self.axis_width  # X 轴最大宽度
 
-        self.current_offset += 10  
+        self.current_offset += 10
 
         # 清空現有 X 軸標籤
         for item in self.scene.items():
@@ -573,18 +573,18 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         #3.3
         # 设置 Y 轴标签 (例如: 20.0 到 50.0)
         for i in range(y1, y2+3, int((y2+10-y1)/5)):  # 每 5 增加一次标签
-            label = f"{float(i):.1f}"  # 格式化为浮点数，保留一位小数
+            label = f"{float(i):.0f}"  # 格式化为浮点数，保留一位小数
             text_item = QGraphicsTextItem(label)
-            text_item.setPos(5, ((i-y1)/y_scale)*(-150)+160)  # 设置标签位置，乘以 2 来调整比例
+            text_item.setPos(5, ((i-y1)/y_scale)*(-150)+155)  # 设置标签位置，乘以 2 来调整比例
             self.scene.addItem(text_item)
 
         # 绘制 Y 轴
         axis_pen = QPen(QColor(0, 0, 0))  # 黑色线条
         axis_pen.setWidth(2)
-        self.scene.addLine(40, 20, 40, 170, axis_pen)  # 画 Y 轴线
-        y_pos_far = ((value_far - y1) / y_scale) * (-150) + 167
-        y_pos_near = ((value_near - y1) / y_scale) * (-150) + 167
-        y_pos_danger = ((value_danger - y1) / y_scale) * (-150) + 167
+        self.scene.addLine(40, 10, 40, 185, axis_pen)  # 画 Y 轴线
+        y_pos_far = ((value_far - y1) / y_scale) * (-150) + 160
+        y_pos_near = ((value_near - y1) / y_scale) * (-150) + 160
+        y_pos_danger = ((value_danger - y1) / y_scale) * (-150) + 160
         line_pen = QPen(QColor(255, 0, 0))  # 红色线条
         line_pen.setWidth(2)
         line_pen_danger = QPen(QColor(255,255, 0))  # 红色线条
@@ -597,10 +597,10 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
 
         # 重新繪製 X 軸標籤
         for i in range(0, 691, 50):  # 每隔 50 像素
-            elapsed_time = self.current_offset + (i // 50 * 10)  # 每刻度 10 秒
+            elapsed_time = self.current_offset + (i // 50 *10)  # 每刻度 10 秒
             time_str = self.start_time.addSecs(elapsed_time).toString("mm:ss")
             text_item = QGraphicsTextItem(time_str)
-            text_item.setPos(40 + i, 170)  # 標籤位置
+            text_item.setPos(40 + i, 185)  # 標籤位置
             self.scene.addItem(text_item)
             self.scene.update()
 
@@ -608,7 +608,10 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
     def clear_all_depth_items(self):
         """清除所有深度值和繪製的線條"""
         # 清空 depth_items（深度值）
-        self.depth_items.clear()
+        #self.depth_items.clear()
+        for item in self.scene.items():
+            if isinstance(item, QGraphicsTextItem) and item not in self.depth_items:
+                self.scene.removeItem(item)
         
         # 清除繪製的線條
         for line_item in self.line_items:
@@ -617,17 +620,23 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         # 清空 line_items 以便繪製新線條
         self.line_items.clear()
         
+        self.draw_y_axis(self.z_near_value,self.z_far_value)
+        self.draw_x_axis()
         # 更新場景
         self.scene.update()
     def draw_training_data(self, current_depth):
         
         # 計算當前點的位置
-        x_pos = 40 + int((self.elapsed_time) *5.31)  # X 軸對應時間的座標
+        if self.elapsed_time>=130:
+            draw_time_data=130
+        else:
+            draw_time_data=self.elapsed_time
+        x_pos = 40 + int((draw_time_data) *5.25)  # X 軸對應時間的座標
         if(current_depth>self.y2):
             current_depth=self.y2+10
         elif(current_depth<self.y1):
             current_depth=self.y1-10
-        y_pos = ((current_depth - self.y1) / (self.y2 - self.y1)) * (-150) + 167  # 映射到 Y 軸
+        y_pos = ((current_depth - self.y1) / (self.y2 - self.y1)) * (-150) + 180  # 映射到 Y 軸
 
         # 如果已有上一個點，繪製線段連接
         if self.depth_items:
@@ -643,11 +652,32 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         self.depth_items.append((x_pos, y_pos))
 
         # 限制最多顯示 70 個點和線
-        if len(self.depth_items) > 70:
+        if len(self.depth_items) > 130:
+            #shift_amount=self.depth_items[1][0]-self.depth_items[0][0]
+            del self.depth_items[:10]
+            
+            if len(self.line_items)>=10:
+                for _ in range(10):
+                    old_point = self.line_items.pop(0)  # 移除最早的點
+                    self.scene.removeItem(old_point )
+            shift_amount=10
+            self.depth_items=[(x-shift_amount,y)for x,y in self.depth_items]
+            for line in self.line_items:
+                new_line=QLine(float(line.line().x1()-shift_amount),float(line.line().y1()),float(line.line().x2()-shift_amount),float(line.line().y2()))
+                line.setLine(new_line)
+            """
+            for i in range(len(self.line_items)):
+                line=self.line_items[i]
+                line.setLine(int(line.line().x1()-shift_amount),int(line.line().y1()),int(line.line().x2()-shift_amount),int(line.line().y2()))
+            """
+        """
+        
+        if len(self.depth_items) > 130:
             old_point = self.depth_items.pop(0)  # 移除最早的點
             old_line = self.line_items.pop(0) if self.line_items else None  # 移除對應的線
             if old_line:
                 self.scene.removeItem(old_line)
+        """
         self.scene.update()
 
     def draw_y_axis(self,near_line,far_line):
@@ -662,7 +692,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         #3.3
         # 设置 Y 轴标签 (例如: 20.0 到 50.0)
         for i in range(self.y1, self.y2+3, int((self.y2+10-self.y1)/5)):  # 每 5 增加一次标签
-            label = f"{float(i):.1f}"  # 格式化为浮点数，保留一位小数
+            label = f"{float(i):.0f}"  # 格式化为浮点数，保留一位小数
             text_item = QGraphicsTextItem(label)
             text_item.setPos(5, ((i-self.y1)/y_scale)*(-150)+160)  # 设置标签位置，乘以 2 来调整比例
             self.scene.addItem(text_item)
@@ -670,10 +700,10 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         # 绘制 Y 轴
         axis_pen = QPen(QColor(0, 0, 0))  # 黑色线条
         axis_pen.setWidth(2)
-        self.scene.addLine(40, 20, 40, 170, axis_pen)  # 画 Y 轴线
-        y_pos_far = ((value_far - self.y1) / y_scale) * (-150) + 167
-        y_pos_near = ((value_near - self.y1) / y_scale) * (-150) + 167
-        y_pos_danger = ((value_danger - self.y1) / y_scale) * (-150) + 167
+        self.scene.addLine(40, 20, 40, 185, axis_pen)  # 画 Y 轴线
+        y_pos_far = ((value_far - self.y1) / y_scale) * (-150) + 160
+        y_pos_near = ((value_near - self.y1) / y_scale) * (-150) + 160
+        y_pos_danger = ((value_danger - self.y1) / y_scale) * (-150) + 160
         line_pen = QPen(QColor(255, 0, 0))  # 红色线条
         line_pen.setWidth(2)
         line_pen_danger = QPen(QColor(255,255, 0))  # 红色线条
@@ -761,6 +791,8 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             else:
                 self.label_10.setText("The Near Side Distance: "+depth_value)
                 self.z_far_value=depth_value[:len(depth_value)-2]
+            self.draw_y_axis(self.z_near_value,self.z_far_value)
+            self.draw_x_axis()
     def show_foot_step(self,left_y_value_list,left_depth_value_list,right_y_value_list,right_depth_value_list):
         window_size = 3
         def moving_average(data, window_size):
@@ -784,18 +816,21 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         #print("z minima ",local_max_z)
         self.foot_step_count=len(local_max_z_left)+len(local_max_z_right)
         self.label_15.setText(str(self.foot_step_count))
-        self.label.setFootstep(self.foot_step_count)
+        #elf.label.setFootstep(self.foot_step_count)
         if  self.foot_step_count==self.foot_step_time_index+1:
             if self.foot_step_count==1:
-                self.start_time=time.time()
+                self.start_time_foot_step=time.time()
             else:
                 end_time=time.time()
-                processing_time=end_time-self.start_time
-                self.start_time=time.time()
+                #print(end_time)
+                processing_time=end_time-self.start_time_foot_step
+                self.start_time_foot_step=time.time()
+                #print(self.start_time_foot_step
                 self.foot_step_left=processing_time
-            self.foot_step_time_index=self.foot_step_count
-            self.foot_step_left=int(60/self.foot_step_left)
-            self.label_17.setText(str(self.foot_step_left))
+                
+                self.foot_step_left=int(60/self.foot_step_left)
+                self.label_17.setText(str(self.foot_step_left))
+        self.foot_step_time_index=self.foot_step_count
     def show_foot_step_distance(self,depth_left,depth_right,left_depth_value_list,right_depth_value_list):
         #local_max_z_left=0
         #local_max_z_right=0
@@ -806,10 +841,10 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
 
         smoothed_data_z_left = moving_average(left_depth_value_list, window_size)
         smoothed_data_z_right = moving_average(right_depth_value_list, window_size)
-        local_min_z_left = argrelextrema(smoothed_data_z_left , np.less,order=3)[0]
-        local_min_z_right = argrelextrema(smoothed_data_z_right, np.less,order=3)[0]
-        local_max_z_left = argrelextrema(smoothed_data_z_left , np.greater,order=3)[0]
-        local_max_z_right = argrelextrema(smoothed_data_z_right, np.greater,order=3)[0]
+        local_min_z_left = argrelextrema(smoothed_data_z_left , np.less,order=5)[0]
+        local_min_z_right = argrelextrema(smoothed_data_z_right, np.less,order=5)[0]
+        local_max_z_left = argrelextrema(smoothed_data_z_left , np.greater,order=5)[0]
+        local_max_z_right = argrelextrema(smoothed_data_z_right, np.greater,order=5)[0]
         
         count_left=0
         
@@ -819,7 +854,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                 
         
         
-        if len(local_min_z_left) > count_left:
+        if len(local_min_z_left) > 0:
             local_min_z_left_index=local_min_z_left[len(local_min_z_left)-1]
             self.right_distance_start_left=smoothed_data_z_left[local_min_z_left_index]
             self.right_distance_start_right= smoothed_data_z_right[local_min_z_left_index]
@@ -835,9 +870,9 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             left_distance=abs(left_foot_distance)+abs(right_foot_distance)
             print("left_distance")
             print(left_distance)
-            self.foot_step_count=left_distance
+            self.foot_step_count=left_distance+0.1
             #self.label.setFootstep(self.foot_step_count,1)
-            self.label_19.setText(f"{left_distance:.1f}")
+            self.label_19.setText(f"{left_distance+0.1:.2f}")
             
         local_min_z_left = np.array([])
         local_max_z_left= np.array([])
@@ -863,9 +898,9 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
             print("right_distance")
             #self.foot_step_count=left_foot_distance
             #print(right_distance)
-            self.foot_step_left=right_distance
+            self.foot_step_left=right_distance+0.1
             
-            self.label_21.setText(f"{right_distance:.1f}")
+            self.label_21.setText(f"{right_distance+0.1:.2f}")
         #plt.ion()
         #plt.plot(depth_left,label="left")
         #plt.plot(depth_right,label="right")
@@ -1021,9 +1056,9 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
         right_ankle_depth_first=0
         right_ankle_depth_second=0
         if len(local_min_z_right)>0:
-            right_ankle_depth_first= smoothed_data_z_right_ankle[local_min_z_right]
+            right_ankle_depth_first= smoothed_data_z_right_ankle[len(local_min_z_right)-1]
         if len(local_max_z_right)>0:
-            right_ankle_depth_second= smoothed_data_z_right_ankle[local_max_z_right]
+            right_ankle_depth_second= smoothed_data_z_right_ankle[len(local_max_z_right)-1]
         if right_ankle_depth_first and right_ankle_depth_second:
             first_line=[]
             second_line=[]
@@ -1646,13 +1681,15 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                 return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
                             if line_right_shoulder and  line_right_hip and line_right_knee and line_left_shoulder and  line_left_hip and line_left_knee:
                                 
-                                self.show_toe_degree(line_right_hip, line_left_hip,line_right_shoulder,line_left_shoulder ,depth_value_mediapipe_calibrate_right_hip,depth_value_mediapipe_calibrate_left_hip,depth_value_mediapipe_calibrate_right_shoulder,depth_value_mediapipe_calibrate_left_shoulder)
+                                #self.show_toe_degree(line_right_hip, line_left_hip,line_right_shoulder,line_left_shoulder ,depth_value_mediapipe_calibrate_right_hip,depth_value_mediapipe_calibrate_left_hip,depth_value_mediapipe_calibrate_right_shoulder,depth_value_mediapipe_calibrate_left_shoulder)
                                 
                                 self.right_depth_value_mediapipe_calibrate_list.append(depth_value_mediapipe_calibrate_right_hip)
+                                right_depth_value_mediapipe_calibrate_array=np.array(self.right_depth_value_mediapipe_calibrate_list)
                                 self.right_x_value_list.append(line_right_hip[0])
                                 self.right_y_value_list.append(line_right_hip[1])
 
                                 self.left_depth_value_mediapipe_calibrate_list.append(depth_value_mediapipe_calibrate_left_hip)
+                                left_depth_value_mediapipe_calibrate_array=np.array(self.left_depth_value_mediapipe_calibrate_list)
                                 self.left_x_value_list.append(line_left_hip[0])
                                 self.left_y_value_list.append(line_left_hip[1])
                                
@@ -1660,25 +1697,31 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                 self.toe_y_right.append(line_right_shoulder[1])
                                 self.toe_depth_right.append(depth_value_mediapipe_calibrate_right_shoulder)
                                 self.toe_x_left.append(line_left_shoulder[0])
-                                self.toe_y_left.append(line_left_shoulder)
+                                self.toe_y_left.append(line_left_shoulder[1])
                                 self.toe_depth_left.append(depth_value_mediapipe_calibrate_left_shoulder)
 
-                                local_min_z_left = argrelextrema(self.left_depth_value_mediapipe_calibrate_list , np.less,order=3)[0]
-                                local_min_z_right = argrelextrema(self.right_depth_value_mediapipe_calibrate_list, np.less,order=3)[0]
-                                local_max_z_left = argrelextrema(self.left_depth_value_mediapipe_calibrate_list , np.greater,order=3)[0]
-                                local_max_z_right = argrelextrema(self.right_depth_value_mediapipe_calibrate_list, np.greater,order=3)[0]
+                                local_min_z_left = argrelextrema(left_depth_value_mediapipe_calibrate_array , np.less,order=3)[0]
+                                local_min_z_right = argrelextrema(right_depth_value_mediapipe_calibrate_array, np.less,order=3)[0]
+                                local_max_z_left = argrelextrema(left_depth_value_mediapipe_calibrate_array , np.greater,order=3)[0]
+                                local_max_z_right = argrelextrema(right_depth_value_mediapipe_calibrate_array, np.greater,order=3)[0]
 
-                                if  local_max_z_left >0:
-                                    left_ankle_depth_first=self.left_depth_value_mediapipe_calibrate_list[local_max_z_left]
-                                if  local_min_z_left >0:
-                                    left_ankle_depth_second=self.left_depth_value_mediapipe_calibrate_list[local_min_z_left]
-                                if local_max_z_left >0 and local_min_z_left >0:  
-                                    first_line.append(self.left_x_value_list[local_max_z_left ]-self.left_x_value_list[local_min_z_left]) 
-                                    first_line.append(self.left_y_value_list[local_max_z_left ]-self.left_y_value_list[local_min_z_left]) 
-                                    first_line.append(left_ankle_depth_first-left_ankle_depth_second) 
-                                    second_line.append(self.left_x_value_list[local_min_z_left]-self.toe_x_left[local_min_z_left])
-                                    second_line.append(self.left_y_value_list[local_min_z_left]-self.toe_y_left[local_min_z_left])
-                                    second_line.append(self.left_depth_value_mediapipe_calibrate_list[local_min_z_left]-self.toe_depth_left[local_min_z_left])
+                                if  len(local_max_z_left)>0:
+                                    left_ankle_depth_first=left_depth_value_mediapipe_calibrate_array[len(local_max_z_left)-1]
+                                if  len(local_min_z_left) >0:
+                                    left_ankle_depth_second=left_depth_value_mediapipe_calibrate_array[len(local_min_z_left)-1]
+                                if len(local_max_z_left) >0 and len(local_min_z_left) >0:  
+                                    first_line=[]
+                                    second_line=[]
+                                    #first_line.append(self.left_x_value_list[len(local_max_z_left)-1]-self.left_x_value_list[len(local_min_z_left)-1]) 
+                                    #first_line.append(self.left_y_value_list[len(local_max_z_left)-1]-self.left_y_value_list[len(local_min_z_left)-1]) 
+                                    #first_line.append((left_ankle_depth_first-left_ankle_depth_second).item()) 
+                                    first_line.append(self.left_x_value_list[len(local_min_z_left)-1]-self.left_x_value_list[len(local_max_z_left)-1]) 
+                                    first_line.append(self.left_y_value_list[len(local_min_z_left)-1]-self.left_y_value_list[len(local_max_z_left)-1]) 
+                                    first_line.append((left_ankle_depth_second-left_ankle_depth_first).item()) 
+                                    second_line.append(self.left_x_value_list[len(local_min_z_left)-1]-self.toe_x_left[len(local_min_z_left)-1])
+                                    second_line.append(self.left_y_value_list[len(local_min_z_left)-1]-self.toe_y_left[len(local_min_z_left)-1])
+                                    second_line.append(self.left_depth_value_mediapipe_calibrate_list[len(local_min_z_left)-1]-self.toe_depth_left[len(local_min_z_left)-1])
+                                    print(first_line)
                                     first_line=np.array(first_line)
                                     second_line=np.array(second_line)
                                     dot_product = np.dot(first_line, second_line)
@@ -1689,7 +1732,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                     theta_rad = np.arccos(cos_theta)
                                     theta_deg = np.degrees(theta_rad)
                                     self.right_line_degree.append(theta_deg)
-                                    self.label_21.setText(f"{theta_deg:.1f}")
+                                    self.label_21.setText(f"{180-theta_deg:.1f}")
 
                                 """
                                 first_line.append((line_left_knee[0]-line_right_knee[0]))
@@ -1770,7 +1813,7 @@ class ExampleWindow(QDialog, example.Ui_Dialog):
                                 self.right_x_value_list.append(line_right_knee[1])
                                 self.right_line_degree.append(depth_value_mediapipe_calibrate_right_knee)
                                 self.left_depth=depth_value_mediapipe_calibrate_left_heel
-                                #self.show_foot_step(self.left_y_value_list,self.left_depth_value_mediapipe_calibrate_list,self.right_y_value_list,self.right_depth_value_mediapipe_calibrate_list)
+                                self.show_foot_step(self.left_y_value_list,self.left_depth_value_mediapipe_calibrate_list,self.right_y_value_list,self.right_depth_value_mediapipe_calibrate_list)
                                 self.show_foot_step_distance(depth_value_mediapipe_calibrate_left_heel,depth_value_mediapipe_calibrate_right_heel,self.left_depth_value_mediapipe_calibrate_list,self.right_depth_value_mediapipe_calibrate_list)
                                 """
                                 first_line=[]
